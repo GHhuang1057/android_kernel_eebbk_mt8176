@@ -17,6 +17,8 @@
 #include <linux/of.h>
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
+#include <linux/gpio.h>
+#include <linux/of_gpio.h>
 
 #define DEBUG_THREAD 1
 #define ACCDET_MULTI_KEY_FEATURE
@@ -31,6 +33,7 @@ int cur_key = 0;
 struct head_dts_data accdet_dts_data;
 s8 accdet_auxadc_offset;
 int accdet_irq;
+int gpiopin;
 unsigned int headsetdebounce;
 unsigned int accdet_eint_type;
 struct headset_mode_settings *cust_headset_settings;
@@ -50,7 +53,7 @@ static int cable_type;
 static int eint_accdet_sync_flag;
 static int g_accdet_first = 1;
 static bool IRQ_CLR_FLAG;
-static int call_status;
+static int call_status = 2; //eebbk liudj modify default to 2
 static int button_status;
 struct wake_lock accdet_suspend_lock;
 struct wake_lock accdet_irq_lock;
@@ -84,6 +87,10 @@ static struct workqueue_struct *accdet_disable_workqueue;
 static u32 pmic_pwrap_read(u32 addr);
 static void pmic_pwrap_write(u32 addr, unsigned int wdata);
 
+#ifdef FOUR_KEY_HEADSET
+static int ADC_GE;
+static int ADC_OE;
+#endif
 char *accdet_status_string[5] = {
 	"Plug_out",
 	"Headset_plug_in",
@@ -245,7 +252,9 @@ static void disable_micbias_callback(struct work_struct *work)
 		ACCDET_DEBUG("[Accdet] more than 5s MICBIAS : Disabled\n");
 	}
 }
-
+/* eebbk <BBK_AUDIO_BSP> <20180115> <liudj> add for pa enable begin */
+bool ext_pa_enable = true;
+/* eebbk <BBK_AUDIO_BSP> <20180115> <liudj> add for pa enable end */
 static void accdet_eint_work_callback(struct work_struct *work)
 {
 #ifdef CONFIG_ACCDET_EINT_IRQ
@@ -257,6 +266,11 @@ static void accdet_eint_work_callback(struct work_struct *work)
 		eint_accdet_sync_flag = 1;
 		mutex_unlock(&accdet_eint_irq_sync_mutex);
 		wake_lock_timeout(&accdet_timer_lock, 7 * HZ);
+
+        // eebbk <BBK_AUDIO_BSP> <20180115 <liudj> add for speaker control begin
+        ext_pa_enable = false;
+        printk("%s plug out  ext_pa=%d\n",__func__, ext_pa_enable);
+        // eebbk <BBK_AUDIO_BSP> <20180115> <liudj> add for speaker control end
 
 		accdet_init();	/*do set pwm_idle on in accdet_init*/
 		/*set PWM IDLE  on*/
@@ -272,6 +286,12 @@ static void accdet_eint_work_callback(struct work_struct *work)
 		mutex_unlock(&accdet_eint_irq_sync_mutex);
 		del_timer_sync(&micbias_timer);
 		/*accdet_auxadc_switch(0);*/
+
+        // eebbk <BBK_AUDIO_BSP> <20180115 <liudj> add for speaker control begin
+        ext_pa_enable = true;
+        printk("%s plug out  ext_pa=%d\n",__func__, ext_pa_enable);
+        // eebbk <BBK_AUDIO_BSP> <20180115> <liudj> add for speaker control end
+
 		disable_accdet();
 		headset_plug_out();
 		/*recover EINT irq clear bit */
@@ -295,6 +315,10 @@ static void accdet_eint_work_callback(struct work_struct *work)
 		pmic_pwrap_write(ACCDET_STATE_SWCTRL, (pmic_pwrap_read(ACCDET_STATE_SWCTRL) | ACCDET_SWCTRL_IDLE_EN));
 		/*enable ACCDET unit*/
 		enable_accdet(ACCDET_SWCTRL_EN);
+        // eebbk <BBK_AUDIO_BSP> <20180115 <liudj> add for speaker control begin
+        ext_pa_enable = false;
+        printk("%s plug in  ext_pa=%d\n",__func__, ext_pa_enable);
+        // eebbk <BBK_AUDIO_BSP> <20180115> <liudj> add for speaker control end
 	} else {
 /*EINT_PIN_PLUG_OUT*/
 /*Disable ACCDET*/
@@ -306,6 +330,11 @@ static void accdet_eint_work_callback(struct work_struct *work)
 		/*accdet_auxadc_switch(0);*/
 		disable_accdet();
 		headset_plug_out();
+        // eebbk <BBK_AUDIO_BSP> <20180115 <liudj> add for speaker control begin
+        ext_pa_enable = true;
+        printk("%s plug out  ext_pa=%d\n",__func__, ext_pa_enable);
+        // eebbk <BBK_AUDIO_BSP> <20180115> <liudj> add for speaker control end
+
 	}
 	enable_irq(accdet_irq);
 #endif
@@ -319,10 +348,14 @@ static irqreturn_t accdet_eint_func(int irq, void *data)
 	cur_eint_state = !cur_eint_state;
 
 	if (accdet_eint_type == IRQ_TYPE_LEVEL_HIGH)
+    {
 		accdet_eint_type = IRQ_TYPE_LEVEL_LOW;
-	else
+        gpio_set_debounce(gpiopin, headsetdebounce);
+    }
+	else {
 		accdet_eint_type = IRQ_TYPE_LEVEL_HIGH;
-
+        gpio_set_debounce(gpiopin, accdet_dts_data.accdet_plugout_debounce * 1000);
+    }
 	irq_set_irq_type(accdet_irq, accdet_eint_type);
 
 	disable_irq_nosync(accdet_irq);
@@ -340,12 +373,22 @@ static inline int accdet_setup_eint(struct platform_device *accdet_device)
 
 	node = of_find_compatible_node(NULL, NULL, "mediatek,mt8173-accdet");
 
-	accdet_eint_type = IRQ_TYPE_LEVEL_HIGH;
+	accdet_eint_type = IRQ_TYPE_LEVEL_LOW;
 
 	if (node) {
 		accdet_irq = irq_of_parse_and_map(node, 0);
 		ACCDET_DEBUG("[accdet]accdet_irq=%d", accdet_irq);
-		ret = request_irq(accdet_irq, accdet_eint_func, IRQ_TYPE_LEVEL_HIGH, "ACCDET-eint", NULL);
+        gpiopin = of_get_named_gpio(node, "accdet-gpio", 0);
+        if (gpiopin < 0)
+            ACCDET_ERROR("[Accdet] not find accdet-gpio\n");
+        headsetdebounce = accdet_dts_data.eint_debounce;
+        ret = gpio_request(gpiopin, "accdet-gpio");
+        if (ret)
+            ACCDET_ERROR("gpio_request fail, ret(%d)\n", ret);
+
+        gpio_direction_input(gpiopin);
+        gpio_set_debounce(gpiopin, headsetdebounce);
+	    ret = request_irq(accdet_irq, accdet_eint_func, IRQ_TYPE_LEVEL_LOW, "ACCDET-eint", NULL);
 		if (ret > 0)
 			ACCDET_ERROR("[Accdet]EINT IRQ LINE NOT AVAILABLE\n");
 		else
@@ -369,6 +412,9 @@ static inline int accdet_setup_eint(struct platform_device *accdet_device)
 #define MD_KEY			 (0x02)
 #define DW_KEY			 (0x04)
 
+#ifdef FOUR_KEY_HEADSET
+#define AS_KEY			 (0x08)
+#endif
 #define SHORT_PRESS		 (0x0)
 #define LONG_PRESS		 (0x10)
 #define SHORT_UP         ((UP_KEY) | SHORT_PRESS)
@@ -397,6 +443,23 @@ static DEFINE_MUTEX(accdet_multikey_mutex);
 #define UP_KEY_THR       (90)	/* 0.09v=90000uv */
 #define MD_KEY_THR		 (0)
 
+#ifdef FOUR_KEY_HEADSET
+static int key_check(int b)
+{
+	/* 0.24V ~ */
+	/*ACCDET_DEBUG("[accdet] come in key_check!!\n");*/
+	if ((b < accdet_dts_data.four_key.down_key_four) && (b >= accdet_dts_data.four_key.up_key_four))
+		return DW_KEY;
+	else if ((b < accdet_dts_data.four_key.up_key_four) && (b >= accdet_dts_data.four_key.voice_key_four))
+		return UP_KEY;
+	else if ((b < accdet_dts_data.four_key.voice_key_four) && (b >= accdet_dts_data.four_key.mid_key_four))
+		return AS_KEY;
+	else if ((b < accdet_dts_data.four_key.mid_key_four) && (b >= 0))
+		return MD_KEY;
+	ACCDET_DEBUG("[accdet] leave key_check!!\n");
+	return NO_KEY;
+}
+#else
 static int key_check(int b)
 {
 	if ((b < DW_KEY_HIGH_THR) && (b >= DW_KEY_THR)) {
@@ -413,6 +476,7 @@ static int key_check(int b)
 	return NO_KEY;
 }
 
+#endif
 static void send_key_event(int keycode, int flag)
 {
 	if (call_status == 0) {
@@ -427,6 +491,13 @@ static void send_key_event(int keycode, int flag)
 			input_sync(kpd_accdet_dev);
 			ACCDET_DEBUG("[Accdet] report KEY_PREVIOUSSONG %d\n", flag);
 			break;
+#ifdef FOUR_KEY_HEADSET
+		case AS_KEY:
+			input_report_key(kpd_accdet_dev, KEY_VOICECOMMAND, flag);
+			input_sync(kpd_accdet_dev);
+			ACCDET_DEBUG("[Accdet] report KEY_VOICECOMMAND %d\n", flag);
+			break;
+#endif
 		}
 	} else {
 		switch (keycode) {
@@ -440,6 +511,13 @@ static void send_key_event(int keycode, int flag)
 			input_sync(kpd_accdet_dev);
 			ACCDET_DEBUG("[Accdet] report KEY_VOLUMEUP %d\n", flag);
 			break;
+#ifdef FOUR_KEY_HEADSET
+		case AS_KEY:
+			input_report_key(kpd_accdet_dev, KEY_VOICECOMMAND, flag);
+			input_sync(kpd_accdet_dev);
+			ACCDET_DEBUG("[Accdet] report KEY_VOICECOMMAND %d\n", flag);
+			break;
+#endif
 		}
 	}
 
@@ -454,9 +532,19 @@ static int multi_key_detection(void)
 	int cur_key = 0;
 	int cali_voltage = 0;
 
-	cali_voltage = PMIC_IMM_GetOneChannelValue(MULTIKEY_ADC_CHANNEL, 1, 1);
+#ifdef FOUR_KEY_HEADSET
+	int dcali_voltage = 0;
 
-	ACCDET_DEBUG("[Accdet]adc cali_voltage1 = %d mv\n", cali_voltage);
+	ACCDET_DEBUG("[Accdet]adc ADC_GE = %d mv  ADC_OE = %d mv\n", ADC_GE, ADC_OE);
+#endif
+	cali_voltage = PMIC_IMM_GetOneChannelValue(MULTIKEY_ADC_CHANNEL, 1, 1);
+	ACCDET_DEBUG("[Accdet]adc before cali_voltage1 = %d mv\n", cali_voltage);
+
+#ifdef FOUR_KEY_HEADSET
+	dcali_voltage = (ADC_GE + 1024) * cali_voltage + ADC_OE * 1200;
+	cali_voltage = dcali_voltage >> 10;
+	ACCDET_DEBUG("[Accdet]adc after cali_voltage1 = %d mv\n", cali_voltage);
+#endif
 	ACCDET_DEBUG("[Accdet]*********detect key.\n");
 
 	m_key = cur_key = key_check(cali_voltage);
@@ -475,6 +563,11 @@ static int multi_key_detection(void)
 
 		/* Check if the voltage has been changed (press one key and another) */
 		cali_voltage = PMIC_IMM_GetOneChannelValue(MULTIKEY_ADC_CHANNEL, 1, 1);
+#ifdef FOUR_KEY_HEADSET
+		dcali_voltage = (ADC_GE + 1024) * cali_voltage + ADC_OE * 1200;
+		cali_voltage = dcali_voltage >> 10;
+#endif
+
 		ACCDET_DEBUG("[Accdet]adc in while loop [%d]= %d mv\n", index, cali_voltage);
 		cur_key = key_check(cali_voltage);
 
@@ -947,7 +1040,7 @@ void accdet_get_dts_data(void)
 {
 	struct device_node *node = NULL;
 	int debounce[7];
-	#ifdef CONFIG_FOUR_KEY_HEADSET
+	#ifdef FOUR_KEY_HEADSET
 	int four_key[5];
 	#else
 	int three_key[4];
@@ -960,7 +1053,8 @@ void accdet_get_dts_data(void)
 		of_property_read_u32(node, "accdet-mic-vol", &accdet_dts_data.mic_mode_vol);
 		of_property_read_u32(node, "accdet-plugout-debounce", &accdet_dts_data.accdet_plugout_debounce);
 		of_property_read_u32(node, "accdet-mic-mode", &accdet_dts_data.accdet_mic_mode);
-		#ifdef CONFIG_FOUR_KEY_HEADSET
+        of_property_read_u32(node, "eint-debounce", &accdet_dts_data.eint_debounce);
+		#ifdef FOUR_KEY_HEADSET
 		of_property_read_u32_array(node, "headset-four-key-threshold", four_key, ARRAY_SIZE(four_key));
 		memcpy(&accdet_dts_data.four_key, four_key+1, sizeof(four_key));
 		ACCDET_INFO("[Accdet]mid-Key = %d, voice = %d, up_key = %d, down_key = %d\n",
@@ -1031,7 +1125,9 @@ static ssize_t accdet_store_call_state(struct device_driver *ddri, const char *b
 		ACCDET_DEBUG("accdet: Invalid values\n");
 		return -EINVAL;
 	}
-
+    /* eebbk <BBK_AUDIO_BSP> <20180115> <liudj> add for multi-key func begin */
+    call_status = 2;
+    /* eebbk <BBK_AUDIO_BSP> <20180115> <liudj> add for multi-key func end */
 	switch (call_status) {
 	case CALL_IDLE:
 		ACCDET_DEBUG("[Accdet]accdet call: Idle state!\n");
@@ -1194,6 +1290,30 @@ void accdet_eint_int_handler(void)
 		ACCDET_DEBUG("[accdet_int_handler] don't finished\n");
 }
 
+#ifdef FOUR_KEY_HEADSET
+void accdet_get_GE_OE(void)
+{
+	int efuse_ge = 0, efuse_oe = 0;
+
+	efuse_ge = pmic_pwrap_read(0x01EC);
+	ADC_GE = (efuse_ge >> 9) & 0x7f;
+	ACCDET_INFO("efuse ge value = 0x%x\n", ADC_GE);
+
+	efuse_oe = pmic_pwrap_read(0x01EE);
+	ADC_OE = efuse_oe & 0x3f;
+	ACCDET_INFO("efuse oe value = 0x%x\n", ADC_OE);
+
+	if (ADC_GE & 0x40)
+		ADC_GE = 0 - ((~(ADC_GE - 1)) & 0x7f);
+
+	if (ADC_OE & 0x20)
+		ADC_OE = 0 - ((~(ADC_OE - 1)) & 0x3f);
+
+	ACCDET_INFO("ADC_GE = %d and ADC_OE = %d\n", ADC_GE, ADC_OE);
+	ACCDET_INFO("efuse_ge value = 0x%x , efuse_oe value = 0x%x\n", efuse_ge, efuse_oe);
+
+}
+#endif
 int mt_accdet_probe(struct platform_device *dev)
 {
 	int ret = 0;
@@ -1263,6 +1383,9 @@ int mt_accdet_probe(struct platform_device *dev)
 	__set_bit(KEY_STOPCD, kpd_accdet_dev->keybit);
 	__set_bit(KEY_VOLUMEDOWN, kpd_accdet_dev->keybit);
 	__set_bit(KEY_VOLUMEUP, kpd_accdet_dev->keybit);
+#ifdef FOUR_KEY_HEADSET
+	__set_bit(KEY_VOICECOMMAND, kpd_accdet_dev->keybit);
+#endif
 
 	kpd_accdet_dev->id.bustype = BUS_HOST;
 	kpd_accdet_dev->name = "ACCDET";
@@ -1305,7 +1428,10 @@ int mt_accdet_probe(struct platform_device *dev)
 
 		accdet_init();
 		/*schedule a work for the first detection*/
-		ACCDET_INFO("[Accdet]accdet_probe : first time detect headset\n");
+		ACCDET_INFO("[Accdet]accdet_probe : first time detect headset---->\n");
+#ifdef FOUR_KEY_HEADSET
+		accdet_get_GE_OE();
+#endif
 		queue_work(accdet_workqueue, &accdet_work);
 
 		accdet_disable_workqueue = create_singlethread_workqueue("accdet_disable");
@@ -1347,6 +1473,14 @@ void mt_accdet_suspend(void)	/*only one suspend mode*/
 	ACCDET_DEBUG("[Accdet]accdet_suspend: ACCDET_CTRL=[0x%x], STATE=[0x%x]->[0x%x]\n",
 	       pmic_pwrap_read(ACCDET_CTRL), pre_state_swctrl, pmic_pwrap_read(ACCDET_STATE_SWCTRL));
 #endif
+/******************add by lyq to close misbase vol start *************/
+	if(accdet_status != PLUG_OUT)
+	{
+		pmic_pwrap_write(ACCDET_STATE_SWCTRL, 0);
+	        pmic_pwrap_write(ACCDET_CTRL, ACCDET_DISABLE);
+        	pmic_pwrap_write(TOP_CKPDN_SET, RG_ACCDET_CLK_SET);
+	}
+/******************add by lyq to close misbase vol end *************/
 }
 
 void mt_accdet_resume(void)	/*wake up*/
@@ -1358,7 +1492,12 @@ void mt_accdet_resume(void)	/*wake up*/
 	       pmic_pwrap_read(ACCDET_CTRL), pmic_pwrap_read(ACCDET_STATE_SWCTRL));
 
 #endif
-
+/******************add by lyq to open misbase vol start *************/
+	if(accdet_status != PLUG_OUT)
+	{
+		enable_accdet(ACCDET_SWCTRL_EN);
+	}
+/******************add by lyq to open misbase vol end *************/
 }
 
 /**********************************************************************
@@ -1418,6 +1557,9 @@ long mt_accdet_unlocked_ioctl(unsigned int cmd, unsigned long arg)
 		break;
 	case SET_CALL_STATE:
 		call_status = (int)arg;
+        /* eebbk <BBK_AUDIO_BSP> <20180115> <liudj> add for multi-key func begin */
+        call_status = 2;
+        /* eebbk <BBK_AUDIO_BSP> <20180115> <liudj> add for multi-key func end */
 		ACCDET_DEBUG("[Accdet]accdet_ioctl : CALL_STATE=%d\n", call_status);
 		break;
 	case GET_BUTTON_STATUS:

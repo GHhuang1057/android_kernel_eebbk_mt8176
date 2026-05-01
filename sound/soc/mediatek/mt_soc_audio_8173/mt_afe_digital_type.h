@@ -1,5 +1,4 @@
 /* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
- * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -60,7 +59,6 @@ enum mt_afe_mem_context {
 	MT_AFE_MEM_CTX_VUL,
 	MT_AFE_MEM_CTX_VUL2,
 	MT_AFE_MEM_CTX_DAI,
-	MT_AFE_MEM_CTX_MOD_DAI,
 	MT_AFE_MEM_CTX_AWB,
 	MT_AFE_MEM_CTX_HDMI,
 	MT_AFE_MEM_CTX_HDMI_RAW,
@@ -381,74 +379,6 @@ enum mt_afe_irq_mcu_status {
 	MT_AFE_IRQ_MCU_STATUS_COUNT = 8,
 };
 
-enum pcm_fmat {
-	PCM_I2S   = 0x0,
-	PCM_EIAJ  = 0x1,
-	PCM_MODEA = 0x2,
-	PCM_MODEB = 0x3,
-};
-
-enum pcm_mode {
-	PCM_8K  = 0x0,
-	PCM_16K = 0x1,
-	PCM_32K = 0x2,
-};
-
-enum pcm_wlen {
-	PCM_32BCK = 0x0,
-	PCM_64BCK = 0x1,
-};
-
-enum pcm_slave {
-	PCM_MASTER = 0x0,
-	PCM_SLAVE = 0x1,
-};
-
-enum pcm_byp_asrc {
-	PCM_GO_ASRC  = 0x0,         /* (ASRC)       Set to 0 when source & destination uses different crystal*/
-	PCM_GO_ASYNC_FIFO = 0x1,    /*(Async FIFO) Set to 1 when source & destination uses same crystal*/
-};
-
-enum pcm_vbit_16k_mode {
-	PCM_VBT_16K_MODE_DISABLE = 0x0,
-	PCM_VBT_16K_MODE_ENABLE = 0x1,
-};
-
-enum pcm_24bit {
-	PCM_16BIT = 0x0,
-	PCM_32BIT = 0x1,
-	PCM_24BIT = 0x2,
-};
-
-enum pcm_ext_mode_sel {
-	PCM_INT_MD = 0x0,
-	PCM_EXT_MD = 0x1,
-};
-
-enum pcm_sync_inv {
-	Soc_Aud_INV_SYNC_NO_INVERSE = 0,
-	Soc_Aud_INV_SYNC_INVERSE = 1,
-};
-
-enum pcm_bck_inv {
-	Soc_Aud_INV_BCK_NO_INVERSE = 0,
-	Soc_Aud_INV_BCK_INVERSE = 1,
-};
-
-enum pcm_tx_lch_rpt {
-	Soc_Aud_TX_LCH_RPT_TX_LCH_NO_REPEAT = 0,
-	Soc_Aud_TX_LCH_RPT_TX_LCH_REPEAT = 1,
-};
-
-enum pcm_sync_type {
-	Soc_Aud_PCM_SYNC_TYPE_BCK_CYCLE_SYNC = 0,	/* bck sync length = 1 */
-	Soc_Aud_PCM_SYNC_TYPE_EXTEND_BCK_CYCLE_SYNC = 1,	/* bck sync length = PCM_INTF_CON[9:13] */
-};
-
-enum pcm_bt_mode {
-	Soc_Aud_BT_MODE_DUAL_MIC_ON_TX = 0,
-	Soc_Aud_BT_MODE_SINGLE_MIC_ON_TX = 1,
-};
 
 /*
  * STRUCT DEFINITION
@@ -477,25 +407,6 @@ struct mt_afe_digital_dai_bt {
 	bool bt_sync;
 	bool bt_on;
 	bool dai_bt_on;
-};
-
-struct mt_afe_pcm_info {
-	enum pcm_fmat fmt;
-	enum pcm_mode mode;
-	enum pcm_slave slave;
-	enum pcm_byp_asrc byp_asrc;
-	enum pcm_bt_mode bt_mode;
-	enum pcm_sync_type sync_type;
-	unsigned int sync_length;
-	enum pcm_wlen wlen;
-	enum pcm_24bit bit24;
-	enum pcm_ext_mode_sel ext_modem;
-	enum pcm_vbit_16k_mode vbat_16k_mode;
-	enum pcm_tx_lch_rpt tx_lch_rpt;
-	enum pcm_bck_inv bck_in_inv;
-	enum pcm_sync_inv sync_in_inv;
-	enum pcm_bck_inv bck_out_inv;
-	enum pcm_sync_inv sync_out_inv;
 };
 
 struct mt_afe_block_t {

@@ -1,5 +1,4 @@
 /* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
- * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -144,23 +143,6 @@ static struct snd_soc_dai_driver mt_dai_stub_dai[] = {
 		      .channels_max = SOC_NORMAL_USE_CHANNELS_MAX,
 		      },
 	 .name = MT_SOC_DL2_CPU_DAI_NAME,
-	 },
-	 {
-	 .playback = {
-		      .stream_name = MT_SOC_BTSCO2_DL_STREAM_NAME,
-		      .rates = STUB_RATES,
-		      .formats = STUB_FORMATS,
-		      .channels_min = SOC_NORMAL_USE_CHANNELS_MIN,
-		      .channels_max = SOC_NORMAL_USE_CHANNELS_MAX,
-		      },
-	 .capture = {
-		     .stream_name = MT_SOC_BTSCO2_UL_STREAM_NAME,
-		     .rates = STUB_RATES,
-		     .formats = STUB_FORMATS,
-		     .channels_min = SOC_NORMAL_USE_CHANNELS_MIN,
-		     .channels_max = SOC_NORMAL_USE_CHANNELS_MAX,
-		     },
-	 .name = MT_SOC_BTSCO2_CPU_DAI_NAME,
 	 },
 };
 

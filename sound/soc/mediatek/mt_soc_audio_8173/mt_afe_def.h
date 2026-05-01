@@ -1,5 +1,4 @@
 /* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
- * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -67,13 +66,6 @@
 #define MT_SOC_BTSCO_UL_STREAM_NAME    "BTSCO_Capture_Stream"
 #define MT_SOC_BTSCO_CPU_DAI_NAME      "mt-soc-btsco-dai"
 #define MT_SOC_BTSCO_PCM               "mt8173-soc-btsco-pcm"
-
-#define MT_SOC_BTSCO2_STREAM_NAME       "BTSCO2_Stream"
-#define MT_SOC_BTSCO2_DL_STREAM_NAME    "BTSCO2_Playback_Stream"
-#define MT_SOC_BTSCO2_UL_STREAM_NAME    "BTSCO2_Capture_Stream"
-#define MT_SOC_BTSCO2_CPU_DAI_NAME      "mt-soc-btsco2-dai"
-#define MT_SOC_BTSCO2_PCM               "mt8173-soc-btsco2-pcm"
-
 
 #define MT_SOC_DL1_AWB_STREAM_NAME     "DL1_AWB_Capture"
 #define MT_SOC_DL1_AWB_CPU_DAI_NAME    "mt-soc-dl1-awb-dai"

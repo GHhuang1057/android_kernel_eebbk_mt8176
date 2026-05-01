@@ -18,6 +18,10 @@
 #include <sound/soc.h>
 #include "mt6391.h"
 #include <linux/mfd/mt6397/registers.h>
+/* eebbk <BBK_AUDIO_BSP> <20180115> <liudj> add for speaker control begin */
+#include <linux/gpio.h>
+#include <linux/of_gpio.h>
+/* eebbk <BBK_AUDIO_BSP> <20180115> <liudj> add for speaker control end */
 
 #define MT6397_CODEC_NAME "mt6397-codec"
 #define PMIC6397_E1_CID_CODE 0x1097
@@ -209,7 +213,9 @@ struct mt6391_priv {
 #endif
 };
 
-
+// eebbk liudj debug
+int spk_ana_gain_enable = 0; 
+int spk_ana_gain = 0;
 /* Function implementation */
 
 static uint32_t mt6391_get_reg(struct mt6391_priv *codec_data, uint32_t offset)
@@ -828,13 +834,34 @@ static void mt6391_set_iv_hp_trim_offset(struct mt6391_priv *codec_data)
 	reg_value |= codec_data->iv_hpl_trim;
 	mt6391_set_reg(codec_data, MT6397_AUDBUF_CFG3, reg_value, 0x1fff);
 }
-
+// eebbk <BBK_AUDIO_BSP> <20180115> <liudj> add for speaker control begin
+extern bool ext_pa_enable;
+static unsigned int speaker_enable_gpio;
+// eebbk <BBK_AUDIO_BSP> <20180115> <liudj> add for speaker control end
 static void mt6391_turn_on_headphone_amp(struct mt6391_priv *codec_data)
 {
 	int gain_l = codec_data->device_volume[MT6391_VOL_HPOUTL];
 	int gain_r = codec_data->device_volume[MT6391_VOL_HPOUTR];
 
 	pr_debug("%s\n", __func__);
+// eebbk <BBK_AUDIO_BSP> <20180505> <liudj> add for speaker ana_gain begin
+    if(ext_pa_enable){
+		if(spk_ana_gain_enable){
+			gain_l = spk_ana_gain;
+			gain_r = spk_ana_gain;
+		}else{
+			gain_l = 0;
+			gain_r = 0;
+			//gain_l = codec_data->device_volume[MT6391_VOL_SPKL];
+			//gain_r = codec_data->device_volume[MT6391_VOL_SPKR];
+		}
+		printk("%s spk_ana_gain_enable=%d gain_l=%d gain_r=%d\n", __func__,spk_ana_gain_enable,gain_l,gain_r);
+    }else{
+        gain_l = codec_data->device_volume[MT6391_VOL_HPOUTL];
+        gain_r = codec_data->device_volume[MT6391_VOL_HPOUTR];
+		printk("%s headset gain_l=%d gain_r=%d\n", __func__,gain_l,gain_r);
+    }    
+// eebbk <BBK_AUDIO_BSP> <20180505> <liudj> add for speaker ana_gain end
 
 	if (codec_data->device_power[MT6391_DEV_OUT_HEADSETL]) {
 		pr_debug("%s turn on already\n", __func__);
@@ -890,6 +917,28 @@ static void mt6391_turn_on_headphone_amp(struct mt6391_priv *codec_data)
 
 	mt6391_set_reg(codec_data, MT6397_AFUNC_AUD_CON2, 0x0000, 0x0080);
 
+    // eebbk <BBK_AUDIO_BSP> <20180115> <liudj> add for speaker control begin
+    // ext_pa_enable: false= disable ext pa ,true= enable ext pa
+    if(ext_pa_enable){
+        printk("%s enable=%d \n",__func__,ext_pa_enable);
+        gpio_set_value(speaker_enable_gpio,1);
+		udelay(2);
+        gpio_set_value(speaker_enable_gpio,0);
+		udelay(2);
+        gpio_set_value(speaker_enable_gpio,1);
+		udelay(2);
+        gpio_set_value(speaker_enable_gpio,0);
+		udelay(2);
+        gpio_set_value(speaker_enable_gpio,1);
+        msleep(10);
+    }else {
+        printk("%s disable=%d \n",__func__,ext_pa_enable);
+        gpio_set_value(speaker_enable_gpio,0);
+        msleep(2);
+    }
+    printk("%s gpio_value=%d \n",__func__, gpio_get_value(speaker_enable_gpio));
+    // eebbk <BBK_AUDIO_BSP> <20180115> <liudj> add for speaker control end
+
 	pr_debug("%s done\n", __func__);
 }
 
@@ -901,6 +950,11 @@ static void mt6391_turn_off_headphone_amp(struct mt6391_priv *codec_data)
 		pr_debug("%s still on\n", __func__);
 		return;
 	}
+
+    // eebbk <BBK_AUDIO_BSP> <20180115> <liudj> add for speaker control begin
+    gpio_set_value(speaker_enable_gpio,0);
+    msleep(2);
+    // eebbk <BBK_AUDIO_BSP> <20180115> <liudj> add for speaker control end
 
 	mt6391_set_reg(codec_data, MT6397_AFUNC_AUD_CON2, 0x0080, 0x0080);
 	mt6391_set_reg(codec_data, MT6397_ZCD_CON2, 0x0c0c, 0xffff);
@@ -2819,6 +2873,35 @@ static struct snd_soc_codec_driver mt6391_codec_driver = {
 	.write = mt6391_write,
 #endif
 };
+// eebbk liudj debug begin
+static ssize_t mt6391_show_spk_ana_gain(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    int ret = 0;
+	ret = (spk_ana_gain_enable << 4)|spk_ana_gain; 
+    if (ret < 0) 
+        return 0;
+
+    return sprintf(buf, "0x%x\n", ret);
+}
+static ssize_t mt6391_store_spk_ana_gain(struct device *dev, struct device_attribute *attr, const char *buf, size_t size)
+{
+    int rate = 0; 
+
+    if (kstrtoint(buf, 16, &rate))
+        return 0;
+	printk("%s rate=0x%x\n",__func__,rate);
+    spk_ana_gain_enable = (rate >> 4)&0xf;
+	spk_ana_gain = (rate&0xf);
+	printk("%s rate=%d spk_ana_gain_enable=%d spk_ana_gain=%d \n",__func__,rate,spk_ana_gain_enable,spk_ana_gain);
+    return size;
+}
+static DEVICE_ATTR(mt6391_spk_ana_gain, 0664, mt6391_show_spk_ana_gain, mt6391_store_spk_ana_gain);
+#if 0
+static struct device_attribute *mt6391_attrs[] = {
+    &dev_attr_mt6391_spk_ana_gain,
+};
+#endif
+// eebbk liudj debug end
 
 static int mt6391_dev_probe(struct platform_device *pdev)
 {
@@ -2866,8 +2949,21 @@ static int mt6391_dev_probe(struct platform_device *pdev)
 	if (ret)
 		codec_data->dmic_warmup_time_us = 0;
 
+    // eebbk <BBK_AUDIO_BSP> <20180115> <liudj> add for speaker control begin
+    speaker_enable_gpio = of_get_named_gpio(dev->of_node, "speaker_gpio", 0);
+    ret = gpio_request(speaker_enable_gpio,"speaker_enable");
+    if(ret){
+        pr_err("%s request speaker_enable_gpio error\n",__func__);
+    }
+    gpio_direction_output(speaker_enable_gpio,0);
+    // eebbk <BBK_AUDIO_BSP> <20180115> <liudj> add for speaker control end
+
 	dev_set_drvdata(dev, codec_data);
 
+	ret = device_create_file(&pdev->dev, &dev_attr_mt6391_spk_ana_gain);
+	if(ret){
+		pr_err("%s device_create_file failed\n",__func__);
+	}
 	return snd_soc_register_codec(dev, &mt6391_codec_driver, mt6391_codec_dai_drvs,
 				ARRAY_SIZE(mt6391_codec_dai_drvs));
 }

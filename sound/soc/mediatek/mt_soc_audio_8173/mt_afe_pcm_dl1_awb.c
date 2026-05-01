@@ -19,14 +19,6 @@
 #include <linux/spinlock.h>
 #include <sound/soc.h>
 
-enum mt_afe_dl1_awb__mux {
-	DL1_AWB = 0,
-	I2S2_AWB
-};
-
-struct mt_pcm_dl1_awb_priv {
-	unsigned int dl1_awb_mux;
-};
 
 /*
  *    function implementation
@@ -36,8 +28,6 @@ static int mt_pcm_dl1_awb_close(struct snd_pcm_substream *substream);
 static void mt_pcm_dl1_awb_start_audio_hw(struct snd_pcm_substream *substream)
 {
 	struct mt_afe_irq_status irq_status;
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct mt_pcm_dl1_awb_priv *priv = snd_soc_platform_get_drvdata(rtd->platform);
 
 	pr_debug("%s\n", __func__);
 
@@ -58,39 +48,28 @@ static void mt_pcm_dl1_awb_start_audio_hw(struct snd_pcm_substream *substream)
 		pr_debug("%s IRQ2_MCU_MODE is enabled , use original irq2 interrupt mode\n",
 			 __func__);
 	}
-	if (priv->dl1_awb_mux == DL1_AWB) {
-		mt_afe_set_connection(INTER_CONNECT, INTER_CONN_I05, INTER_CONN_O05);
-		mt_afe_set_connection(INTER_CONNECT, INTER_CONN_I06, INTER_CONN_O06);
-		mt_afe_set_connection(INTER_CONNECT, INTER_CONN_I07, INTER_CONN_O05);
-		mt_afe_set_connection(INTER_CONNECT, INTER_CONN_I08, INTER_CONN_O06);
-	} else {
-		mt_afe_set_connection(INTER_CONNECT, INTER_CONN_I03, INTER_CONN_O05);
-		mt_afe_set_connection(INTER_CONNECT, INTER_CONN_I04, INTER_CONN_O06);
 
-	}
+	mt_afe_set_connection(INTER_CONNECT, INTER_CONN_I05, INTER_CONN_O05);
+	mt_afe_set_connection(INTER_CONNECT, INTER_CONN_I06, INTER_CONN_O06);
+	mt_afe_set_connection(INTER_CONNECT, INTER_CONN_I07, INTER_CONN_O05);
+	mt_afe_set_connection(INTER_CONNECT, INTER_CONN_I08, INTER_CONN_O06);
+
 	mt_afe_enable_afe(true);
 }
 
 static void mt_pcm_dl1_awb_stop_audio_hw(struct snd_pcm_substream *substream)
 {
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct mt_pcm_dl1_awb_priv *priv = snd_soc_platform_get_drvdata(rtd->platform);
-
 	pr_debug("%s\n", __func__);
 
 	mt_afe_disable_memory_path(MT_AFE_DIGITAL_BLOCK_MEM_AWB);
 
 	mt_afe_set_irq_state(MT_AFE_IRQ_MCU_MODE_IRQ2, false);
 
-	if (priv->dl1_awb_mux == DL1_AWB) {
-		mt_afe_set_connection(INTER_DISCONNECT, INTER_CONN_I05, INTER_CONN_O05);
-		mt_afe_set_connection(INTER_DISCONNECT, INTER_CONN_I06, INTER_CONN_O06);
-		mt_afe_set_connection(INTER_DISCONNECT, INTER_CONN_I07, INTER_CONN_O05);
-		mt_afe_set_connection(INTER_DISCONNECT, INTER_CONN_I08, INTER_CONN_O06);
-	} else {
-		mt_afe_set_connection(INTER_DISCONNECT, INTER_CONN_I03, INTER_CONN_O05);
-		mt_afe_set_connection(INTER_DISCONNECT, INTER_CONN_I04, INTER_CONN_O06);
-	}
+	mt_afe_set_connection(INTER_DISCONNECT, INTER_CONN_I05, INTER_CONN_O05);
+	mt_afe_set_connection(INTER_DISCONNECT, INTER_CONN_I06, INTER_CONN_O06);
+	mt_afe_set_connection(INTER_DISCONNECT, INTER_CONN_I07, INTER_CONN_O05);
+	mt_afe_set_connection(INTER_DISCONNECT, INTER_CONN_I08, INTER_CONN_O06);
+
 	mt_afe_enable_afe(false);
 }
 
@@ -246,56 +225,13 @@ static struct snd_pcm_ops mt_pcm_dl1_awb_ops = {
 	.pointer = mt_pcm_dl1_awb_pointer,
 };
 
-
-static const char *const mt_pcm_dl1_awb_mux_function[] = {
-	ENUM_TO_STR(DL1_AWB),
-	ENUM_TO_STR(I2S2_AWB)
-};
-
-static int  dl1_awb_mux_get(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
-	struct mt_pcm_dl1_awb_priv *priv = snd_soc_component_get_drvdata(component);
-
-	ucontrol->value.integer.value[0] = priv->dl1_awb_mux;
-	return 0;
-}
-
-static int dl1_awb_mux_set(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
-	struct mt_pcm_dl1_awb_priv *priv = snd_soc_component_get_drvdata(component);
-
-	priv->dl1_awb_mux = ucontrol->value.integer.value[0];
-	return 0;
-}
-
-static const struct soc_enum mt_pcm_dl1_awb_control_enum[] = {
-	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(mt_pcm_dl1_awb_mux_function),
-			mt_pcm_dl1_awb_mux_function),
-};
-
-static const struct snd_kcontrol_new mt_pcm_dl1_awb_controls[] = {
-	SOC_ENUM_EXT("DL1_AWB_Mux", mt_pcm_dl1_awb_control_enum[0],
-		dl1_awb_mux_get, dl1_awb_mux_set),
-};
-
-static int mt_pcm_dl1_awb_probe(struct snd_soc_platform *platform)
-{
-	snd_soc_add_platform_controls(platform, mt_pcm_dl1_awb_controls,
-				ARRAY_SIZE(mt_pcm_dl1_awb_controls));
-	return 0;
-}
-
 static struct snd_soc_platform_driver mt_pcm_dl1_awb_platform = {
 	.ops = &mt_pcm_dl1_awb_ops,
-	.probe = mt_pcm_dl1_awb_probe,
 };
 
 static int mt_pcm_dl1_awb_dev_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	struct mt_pcm_dl1_awb_priv *priv;
 	int rc;
 
 	pr_debug("%s dev name %s\n", __func__, dev_name(dev));
@@ -308,15 +244,6 @@ static int mt_pcm_dl1_awb_dev_probe(struct platform_device *pdev)
 		dev_set_name(dev, "%s", MT_SOC_DL1_AWB_PCM);
 		pr_debug("%s set dev name %s\n", __func__, dev_name(dev));
 	}
-
-	priv = devm_kzalloc(dev, sizeof(struct mt_pcm_dl1_awb_priv), GFP_KERNEL);
-	if (!priv)
-		return -ENOMEM;
-
-	priv->dl1_awb_mux = DL1_AWB;
-
-	dev_set_drvdata(dev, priv);
-
 	return snd_soc_register_platform(dev, &mt_pcm_dl1_awb_platform);
 }
 

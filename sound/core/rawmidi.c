@@ -1,7 +1,6 @@
 /*
  *  Abstract layer for MIDI v1.0 stream
  *  Copyright (c) by Jaroslav Kysela <perex@perex.cz>
- * Copyright (C) 2018 XiaoMi, Inc.
  *
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -641,6 +640,7 @@ int snd_rawmidi_output_params(struct snd_rawmidi_substream *substream,
 	char *newbuf;
 	char *oldbuf;
 	struct snd_rawmidi_runtime *runtime = substream->runtime;
+
 	unsigned long flags;
 
 	if (substream->append && substream->use_count > 1)
@@ -1008,9 +1008,9 @@ static long snd_rawmidi_kernel_read1(struct snd_rawmidi_substream *substream,
 		result += count1;
 		count -= count1;
 	}
+	spin_unlock_irqrestore(&runtime->lock, flags);
 	if (userbuf)
 		mutex_unlock(&runtime->realloc_mutex);
-	spin_unlock_irqrestore(&runtime->lock, flags);
 	return result;
 }
 

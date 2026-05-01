@@ -1,7 +1,6 @@
 /*
  *  ALSA sequencer Client Manager
  *  Copyright (c) 1998-2001 by Frank van de Pol <fvdpol@coil.demon.nl>
- * Copyright (C) 2018 XiaoMi, Inc.
  *                             Jaroslav Kysela <perex@perex.cz>
  *                             Takashi Iwai <tiwai@suse.de>
  *
@@ -1252,8 +1251,8 @@ static int snd_seq_ioctl_set_client_info(struct snd_seq_client *client,
 }
 
 
-/*
- * CREATE PORT ioctl()
+/* 
+ * CREATE PORT ioctl() 
  */
 static int snd_seq_ioctl_create_port(struct snd_seq_client *client,
 				     void __user *arg)
@@ -1307,8 +1306,8 @@ static int snd_seq_ioctl_create_port(struct snd_seq_client *client,
 	return 0;
 }
 
-/*
- * DELETE PORT ioctl()
+/* 
+ * DELETE PORT ioctl() 
  */
 static int snd_seq_ioctl_delete_port(struct snd_seq_client *client,
 				     void __user *arg)

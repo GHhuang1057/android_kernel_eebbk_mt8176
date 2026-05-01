@@ -139,6 +139,7 @@ struct head_dts_data {
 	struct headset_mode_settings headset_debounce;
 	int accdet_plugout_debounce;
 	int accdet_mic_mode;
+    int eint_debounce;
 	struct three_key_threshold three_key;
 	struct four_key_threshold four_key;
 };

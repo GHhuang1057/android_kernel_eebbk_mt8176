@@ -1,5 +1,4 @@
 /* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
- * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -96,11 +95,7 @@ void mt_afe_reset_dma_buffer(enum mt_afe_mem_context mem_context);
 int mt_afe_update_hw_ptr(enum mt_afe_mem_context mem_context);
 
 unsigned int mt_afe_get_board_channel_type(void);
-void mt_afe_set_pcmif_asrc(struct mt_afe_pcm_info *pcm_info);
-void mt_afe_enable_pcmif_asrc(struct mt_afe_pcm_info *pcm_info);
-void mt_afe_disable_pcmif_asrc(void);
-void mt_afe_set_pcmif(struct mt_afe_pcm_info *pcm_info);
-void mt_afe_enable_pcmif(bool enable);
+
 void mt_afe_set_hdmi_out_channel(unsigned int channels);
 int mt_afe_enable_hdmi_out(void);
 int mt_afe_disable_hdmi_out(void);
@@ -111,7 +106,5 @@ int mt_afe_disable_hdmi_tdm(void);
 int mt_afe_enable_hdmi_tdm_i2s_loopback(void);
 int mt_afe_disable_hdmi_tdm_i2s_loopback(void);
 void mt_afe_set_hdmi_tdm_i2s_loopback_data(unsigned int sdata_index);
-void mt_afe_set_8173_mclk(bool enable);
-void mt_afe_set_init(void);
 
 #endif

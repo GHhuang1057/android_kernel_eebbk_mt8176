@@ -1,5 +1,4 @@
 /* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
- * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -59,8 +58,6 @@ static unsigned int board_channel_type;
 static struct device *mach_dev;
 static bool audio_power_status;
 
-static bool cdc_initialized;
-
 
 /*
  *    static function declaration
@@ -106,6 +103,7 @@ int mt_afe_platform_init(void *dev)
 		pr_warn("%s invalid pm_domain\n", __func__);
 		return -EPROBE_DEFER;
 	}
+
 
 	irq_id = irq_of_parse_and_map(pdev->of_node, 0);
 	if (irq_id)
@@ -1151,45 +1149,6 @@ uint32_t mt_afe_set_mclk(uint32_t clock_type, uint32_t sample_rate)
 	return mclk_div;
 }
 
-void mt_afe_set_8173_mclk(bool enable)
-{
-	static bool is_mclk_on;
-
-	printk(KERN_INFO "%s enable: %d is_mclk_on: %d cdc_initialized: %d\n",
-			__func__, enable, is_mclk_on, cdc_initialized);
-
-	if (!cdc_initialized) {
-		return;
-	}
-
-	if (enable == is_mclk_on)
-		return;
-
-	if (enable) {
-		mt_afe_enable_apll(48000);
-		mt_afe_enable_apll_tuner(48000);
-		mt_afe_set_mclk(MT_AFE_I2S1, 48000);
-		mt_afe_set_mclk(MT_AFE_ENGEN, 48000);
-		mt_afe_enable_apll_div_power(MT_AFE_I2S1, 48000);
-		mt_afe_enable_apll_div_power(MT_AFE_ENGEN, 48000);
-		is_mclk_on = true;
-	} else {
-		mt_afe_disable_apll_div_power(MT_AFE_I2S1, 48000);
-		mt_afe_disable_apll_div_power(MT_AFE_ENGEN, 48000);
-		mt_afe_disable_apll_tuner(48000);
-		mt_afe_disable_apll(48000);
-		is_mclk_on = false;
-	}
-
-}
-EXPORT_SYMBOL_GPL(mt_afe_set_mclk);
-
-void mt_afe_set_init(void)
-{
-	cdc_initialized = true;
-}
-EXPORT_SYMBOL_GPL(mt_afe_set_init);
-
 void mt_afe_set_i2s3_bclk(uint32_t mck_div, uint32_t sample_rate, uint32_t channels,
 		       uint32_t sample_bits)
 {
@@ -1213,95 +1172,6 @@ void mt_afe_set_i2s3_bclk(uint32_t mck_div, uint32_t sample_rate, uint32_t chann
 	}
 }
 
-void mt_afe_set_pcmif_asrc(struct mt_afe_pcm_info *pcm_info)
-{
-	switch (pcm_info->mode) {
-	case PCM_8K:
-		mt_afe_set_reg(AFE_ASRC_CON1, 0x00098580, 0xffffffff);
-		mt_afe_set_reg(AFE_ASRC_CON2, 0x00400000, 0xffffffff);
-		mt_afe_set_reg(AFE_ASRC_CON3, 0x00400000, 0xffffffff);
-		mt_afe_set_reg(AFE_ASRC_CON4, 0x00098580, 0xffffffff);
-		mt_afe_set_reg(AFE_ASRC_CON7, 0x0004c2c0, 0xffffffff);
-		break;
-	case PCM_16K:
-		mt_afe_set_reg(AFE_ASRC_CON1, 0x0004c2c0, 0xffffffff);
-		mt_afe_set_reg(AFE_ASRC_CON2, 0x00400000, 0xffffffff);
-		mt_afe_set_reg(AFE_ASRC_CON3, 0x00400000, 0xffffffff);
-		mt_afe_set_reg(AFE_ASRC_CON4, 0x0004c2c0, 0xffffffff);
-		mt_afe_set_reg(AFE_ASRC_CON7, 0x00026160, 0xffffffff);
-		break;
-	case PCM_32K:
-		mt_afe_set_reg(AFE_ASRC_CON1, 0x00026160, 0xffffffff);
-		mt_afe_set_reg(AFE_ASRC_CON2, 0x00400000, 0xffffffff);
-		mt_afe_set_reg(AFE_ASRC_CON3, 0x00400000, 0xffffffff);
-		mt_afe_set_reg(AFE_ASRC_CON4, 0x00026160, 0xffffffff);
-		mt_afe_set_reg(AFE_ASRC_CON7, 0x000130b0, 0xffffffff);
-		break;
-	default:
-		pr_debug("%s samp_mode err\n", __func__);
-		break;
-	}
-}
-
-void mt_afe_enable_pcmif_asrc(struct mt_afe_pcm_info *pcm_info)
-{
-	if (pcm_info->mode != PCM_32K) {
-		if (pcm_info->vbat_16k_mode == PCM_VBT_16K_MODE_ENABLE)
-			mt_afe_set_reg(AFE_ASRC_CON6, 0x005f188f, 0xffffffff);
-		else
-			mt_afe_set_reg(AFE_ASRC_CON6, 0x00bf188f, 0xffffffff);
-		mt_afe_set_reg(AFE_ASRC_CON0, 0x06003031, 0xffffffff);
-	} else {
-		mt_afe_set_reg(AFE_ASRC_CON6, 0x00bf188f, 0xffffffff);
-		mt_afe_set_reg(AFE_ASRC_CON0, 0x06003031, 0xffffffff);
-	}
-	if (pcm_info->bit24 == PCM_16BIT) {
-		mt_afe_set_reg(AFE_ASRC_CON0, 0x1 << 31, 0x1 << 31);
-		mt_afe_set_reg(AFE_ASRC_CON0, 0x1 << 19, 0x1 << 19);
-	} else {
-		mt_afe_set_reg(AFE_ASRC_CON0, 0x0 << 31, 0x1 << 31);
-		mt_afe_set_reg(AFE_ASRC_CON0, 0x0 << 19, 0x1 << 19);
-	}
-}
-
-void mt_afe_disable_pcmif_asrc(void)
-{
-	mt_afe_set_reg(AFE_ASRC_CON6, 0x00000000, 0xffffffff);
-	mt_afe_set_reg(AFE_ASRC_CON0, 0x06003030, 0xffffffff);
-}
-
-void mt_afe_set_pcmif(struct mt_afe_pcm_info *pcm_info)
-{
-	unsigned int reg_pcm_intf_con1_val = 0;
-
-	mt_afe_set_reg(PCM_INTF_CON1, 0, 0xffffffff);
-	reg_pcm_intf_con1_val |= (pcm_info->fmt & 0x03) << 1;
-	reg_pcm_intf_con1_val |= (pcm_info->mode & 0x03) << 3;
-	reg_pcm_intf_con1_val |= (pcm_info->slave & 0x01) << 5;
-	reg_pcm_intf_con1_val |= (pcm_info->byp_asrc & 0x01) << 6;
-	reg_pcm_intf_con1_val |= (pcm_info->bt_mode & 0x01) << 7;
-	reg_pcm_intf_con1_val |= (pcm_info->sync_type & 0x01) << 8;
-	reg_pcm_intf_con1_val |= (pcm_info->sync_length & 0x3e) << 9;
-	reg_pcm_intf_con1_val |= (pcm_info->wlen & 0x03) << 14;
-	reg_pcm_intf_con1_val |= (pcm_info->bit24 & 0x01) << 16;
-	reg_pcm_intf_con1_val |= (pcm_info->ext_modem & 0x01) << 17;
-	reg_pcm_intf_con1_val |= (pcm_info->vbat_16k_mode & 0x01) << 18;
-	reg_pcm_intf_con1_val |= (pcm_info->tx_lch_rpt & 0x01) << 19;
-	reg_pcm_intf_con1_val |= (pcm_info->bck_in_inv & 0x01) << 20;
-	reg_pcm_intf_con1_val |= (pcm_info->sync_in_inv & 0x01) << 21;
-	reg_pcm_intf_con1_val |= (pcm_info->bck_out_inv & 0x01) << 22;
-	reg_pcm_intf_con1_val |= (pcm_info->sync_out_inv & 0x01) << 23;
-	mt_afe_set_reg(PCM_INTF_CON1, reg_pcm_intf_con1_val, 0xffffffff);
-}
-
-void mt_afe_enable_pcmif(bool enable)
-{
-	if (enable) {
-		mt_afe_set_reg(PCM_INTF_CON1, 0x1 << 0, 0x1 << 0);
-	} else {
-		mt_afe_set_reg(PCM_INTF_CON1, 0x0 << 0, 0x1 << 0);
-	}
-}
 void mt_afe_set_dai_bt(struct mt_afe_digital_dai_bt *dai_bt)
 {
 	audio_dai_bt->use_mrgif_input = dai_bt->use_mrgif_input;
@@ -1555,12 +1425,6 @@ void mt_afe_init_dma_buffer(enum mt_afe_mem_context mem_context,
 			0xffffffff);
 		mt_afe_set_reg(AFE_MEMIF_MSB, memory_addr_bit33 << 5, 1 << 5);
 		break;
-	case MT_AFE_MEM_CTX_MOD_DAI:
-		mt_afe_set_reg(AFE_MOD_DAI_BASE, block->phy_buf_addr, 0xffffffff);
-		mt_afe_set_reg(AFE_MOD_DAI_END, block->phy_buf_addr + (block->buffer_size - 1),
-			0xffffffff);
-		mt_afe_set_reg(AFE_MEMIF_MSB, memory_addr_bit33 << 4, 1 << 4);
-		break;
 	case MT_AFE_MEM_CTX_AWB:
 		mt_afe_set_reg(AFE_AWB_BASE, block->phy_buf_addr, 0xffffffff);
 		mt_afe_set_reg(AFE_AWB_END, block->phy_buf_addr + (block->buffer_size - 1),
@@ -1629,7 +1493,6 @@ int mt_afe_update_hw_ptr(enum mt_afe_mem_context mem_context)
 	case MT_AFE_MEM_CTX_VUL:
 	case MT_AFE_MEM_CTX_VUL2:
 	case MT_AFE_MEM_CTX_DAI:
-	case MT_AFE_MEM_CTX_MOD_DAI:
 	case MT_AFE_MEM_CTX_AWB:
 		rc = bytes_to_frames(runtime, afe_block->write_index);
 		break;
@@ -1897,12 +1760,7 @@ static void mt_afe_dl_interrupt_handler(void)
 	int hw_memory_index;
 	int hw_cur_read_index = 0;
 	struct mt_afe_block_t *const afe_block =
-		&(mt_afe_get_mem_ctx(MT_AFE_MEM_CTX_DL1)->block);
-	struct snd_pcm_substream *substream =
-		mt_afe_get_mem_ctx(MT_AFE_MEM_CTX_DL1)->substream;
-
-	if (!substream)
-		return;
+	    &(afe_mem_control_context[MT_AFE_MEM_CTX_DL1]->block);
 
 #ifdef DEBUG_IRQ_STATUS
 	{
@@ -1950,7 +1808,7 @@ static void mt_afe_dl_interrupt_handler(void)
 	afe_block->read_index += afe_consumed_bytes;
 	afe_block->read_index %= afe_block->buffer_size;
 
-	snd_pcm_period_elapsed(substream);
+	snd_pcm_period_elapsed(afe_mem_control_context[MT_AFE_MEM_CTX_DL1]->substream);
 
 #ifdef DEBUG_IRQ_STATUS
 	gpt_get_cnt(GPT2, &pre_irq1_gpt_cnt);
@@ -1963,12 +1821,7 @@ static void mt_afe_dl2_interrupt_handler(void)
 	int hw_memory_index;
 	int hw_cur_read_index = 0;
 	struct mt_afe_block_t *const afe_block =
-		&(mt_afe_get_mem_ctx(MT_AFE_MEM_CTX_DL2)->block);
-	struct snd_pcm_substream *substream =
-		mt_afe_get_mem_ctx(MT_AFE_MEM_CTX_DL2)->substream;
-
-	if (!substream)
-		return;
+	    &(afe_mem_control_context[MT_AFE_MEM_CTX_DL2]->block);
 
 	hw_cur_read_index = mt_afe_get_reg(AFE_DL2_CUR);
 
@@ -1999,7 +1852,7 @@ static void mt_afe_dl2_interrupt_handler(void)
 	afe_block->read_index += afe_consumed_bytes;
 	afe_block->read_index %= afe_block->buffer_size;
 
-	snd_pcm_period_elapsed(substream);
+	snd_pcm_period_elapsed(afe_mem_control_context[MT_AFE_MEM_CTX_DL2]->substream);
 }
 
 static void mt_afe_ul_interrupt_handler(void)
@@ -2014,10 +1867,6 @@ static void mt_afe_ul_interrupt_handler(void)
 	if (afe_dac_con0 & 0x10) {
 		/* handle DAI Context */
 		mt_afe_handle_mem_context(MT_AFE_MEM_CTX_DAI);
-	}
-	if (afe_dac_con0 & 0x80) {
-		/* handle MOD DAI Context */
-		mt_afe_handle_mem_context(MT_AFE_MEM_CTX_MOD_DAI);
 	}
 	if (afe_dac_con0 & 0x40) {
 		/* handle AWB Context */
@@ -2036,11 +1885,6 @@ static void mt_afe_hdmi_interrupt_handler(void)
 	int hw_cur_read_index = 0;
 	struct mt_afe_block_t *const afe_block =
 		&(mt_afe_get_mem_ctx(MT_AFE_MEM_CTX_HDMI)->block);
-	struct snd_pcm_substream *substream =
-		mt_afe_get_mem_ctx(MT_AFE_MEM_CTX_HDMI)->substream;
-
-	if (!substream)
-		return;
 
 	hw_cur_read_index = mt_afe_get_reg(AFE_HDMI_OUT_CUR);
 	if (hw_cur_read_index == 0) {
@@ -2074,7 +1918,7 @@ static void mt_afe_hdmi_interrupt_handler(void)
 	afe_block->read_index += afe_consumed_bytes;
 	afe_block->read_index %= afe_block->buffer_size;
 
-	snd_pcm_period_elapsed(substream);
+	snd_pcm_period_elapsed(mt_afe_get_mem_ctx(MT_AFE_MEM_CTX_HDMI)->substream);
 }
 
 static void mt_afe_hdmi_raw_interrupt_handler(void)
@@ -2085,12 +1929,7 @@ static void mt_afe_hdmi_raw_interrupt_handler(void)
 	unsigned int burst_len = 0;
 
 	struct mt_afe_block_t *const afe_block =
-		&(mt_afe_get_mem_ctx(MT_AFE_MEM_CTX_HDMI_RAW)->block);
-	struct snd_pcm_substream *substream =
-		mt_afe_get_mem_ctx(MT_AFE_MEM_CTX_HDMI_RAW)->substream;
-
-	if (!substream)
-		return;
+	    &(mt_afe_get_mem_ctx(MT_AFE_MEM_CTX_HDMI_RAW)->block);
 
 	if (mt_afe_get_reg(AFE_IEC_BURST_INFO) & 0x000010000) {
 		pr_debug("%s HW is Not ready to get next burst info\n", __func__);
@@ -2143,7 +1982,7 @@ static void mt_afe_hdmi_raw_interrupt_handler(void)
 	   __func__, burst_len, afe_block->iec_nsadr, afe_block->read_index, afe_consumed_bytes);
 	 */
 
-	snd_pcm_period_elapsed(substream);
+	snd_pcm_period_elapsed(mt_afe_get_mem_ctx(MT_AFE_MEM_CTX_HDMI_RAW)->substream);
 }
 
 static void mt_afe_spdif_interrupt_handler(void)
@@ -2155,11 +1994,6 @@ static void mt_afe_spdif_interrupt_handler(void)
 
 	struct mt_afe_block_t *const afe_block =
 		&(mt_afe_get_mem_ctx(MT_AFE_MEM_CTX_SPDIF)->block);
-	struct snd_pcm_substream *substream =
-		mt_afe_get_mem_ctx(MT_AFE_MEM_CTX_SPDIF)->substream;
-
-	if (!substream)
-		return;
 
 	if (mt_afe_get_reg(AFE_IEC2_BURST_INFO) & 0x000010000) {
 		pr_debug("%s HW is Not ready to get next burst info\n", __func__);
@@ -2212,7 +2046,7 @@ static void mt_afe_spdif_interrupt_handler(void)
 	   __func__, burst_len, afe_block->iec_nsadr, afe_block->read_index, afe_consumed_bytes);
 	 */
 
-	snd_pcm_period_elapsed(substream);
+	snd_pcm_period_elapsed(mt_afe_get_mem_ctx(MT_AFE_MEM_CTX_SPDIF)->substream);
 }
 
 static void mt_afe_handle_mem_context(enum mt_afe_mem_context mem_context)
@@ -2220,11 +2054,6 @@ static void mt_afe_handle_mem_context(enum mt_afe_mem_context mem_context)
 	uint32_t hw_cur_read_index = 0;
 	int hw_get_bytes = 0;
 	struct mt_afe_block_t *block = NULL;
-	struct snd_pcm_substream *substream =
-		mt_afe_get_mem_ctx(mem_context)->substream;
-
-	if (!substream)
-		return;
 
 	switch (mem_context) {
 	case MT_AFE_MEM_CTX_VUL:
@@ -2232,9 +2061,6 @@ static void mt_afe_handle_mem_context(enum mt_afe_mem_context mem_context)
 		break;
 	case MT_AFE_MEM_CTX_DAI:
 		hw_cur_read_index = mt_afe_get_reg(AFE_DAI_CUR);
-		break;
-	case MT_AFE_MEM_CTX_MOD_DAI:
-		hw_cur_read_index = mt_afe_get_reg(AFE_MOD_DAI_CUR);
 		break;
 	case MT_AFE_MEM_CTX_AWB:
 		hw_cur_read_index = mt_afe_get_reg(AFE_AWB_CUR);
@@ -2269,7 +2095,7 @@ static void mt_afe_handle_mem_context(enum mt_afe_mem_context mem_context)
 	block->write_index += hw_get_bytes;
 	block->write_index %= block->buffer_size;
 
-	snd_pcm_period_elapsed(substream);
+	snd_pcm_period_elapsed(afe_mem_control_context[mem_context]->substream);
 }
 
 static void mt_afe_clean_predistortion(void)

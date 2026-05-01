@@ -74,8 +74,10 @@ void tpd_get_dts_info(void)
 	struct device_node *node1 = NULL;
 	int key_dim_local[16], i;
 
+	printk("[TPD] enter %s, line=%d\n", __func__, __LINE__);
 	node1 = of_find_matching_node(node1, touch_of_match);
 	if (node1) {
+		printk("[TPD] has find the dts node, line=%d\n", __LINE__);
 		of_property_read_u32(node1, "tpd-max-touch-num", &tpd_dts_data.touch_max_num);
 		of_property_read_u32(node1, "use-tpd-button", &tpd_dts_data.use_tpd_button);
 		pr_debug("[tpd]use-tpd-button = %d\n", tpd_dts_data.use_tpd_button);
@@ -108,6 +110,7 @@ void tpd_get_dts_info(void)
 		memcpy(&tpd_filter, &tpd_dts_data.touch_filter, sizeof(tpd_filter));
 		pr_debug("[tpd]tpd-filter-enable = %d, pixel_density = %d\n",
 					tpd_filter.enable, tpd_filter.pixel_density);
+		printk("[TPD] %s exit, line=%d\n",__func__, __LINE__);
 	} else {
 		pr_err("[tpd]%s can't find touch compatible custom node\n", __func__);
 	}
@@ -523,8 +526,8 @@ static int tpd_probe(struct platform_device *pdev)
 #if !defined(CONFIG_MTK_S3320) && !defined(CONFIG_MTK_S3320_47)\
 	&& !defined(CONFIG_MTK_S3320_50) && !defined(CONFIG_MTK_MIT200) \
 	&& !defined(CONFIG_TOUCHSCREEN_SYNAPTICS_S3528) && !defined(CONFIG_MTK_S7020) \
-	&& !defined(CONFIG_TOUCHSCREEN_MTK_SYNAPTICS_3320_50)
-	set_bit(BTN_TOUCH, tpd->dev->keybit);
+	&& !defined(CONFIG_TOUCHSCREEN_MTK_SYNAPTICS_3320_50) && !defined(CONFIG_TOUCHSCREEN_MTK_GT9XX)
+	//set_bit(BTN_TOUCH, tpd->dev->keybit);
 #endif /* CONFIG_MTK_S3320 */
 	set_bit(INPUT_PROP_DIRECT, tpd->dev->propbit);
 
@@ -574,7 +577,7 @@ static int tpd_probe(struct platform_device *pdev)
 #if defined(CONFIG_MTK_S3320) || defined(CONFIG_MTK_S3320_47) \
 	|| defined(CONFIG_MTK_S3320_50) || defined(CONFIG_MTK_MIT200) \
 	|| defined(CONFIG_TOUCHSCREEN_SYNAPTICS_S3528) || defined(CONFIG_MTK_S7020) \
-	|| defined(CONFIG_TOUCHSCREEN_MTK_SYNAPTICS_3320_50)
+	|| defined(CONFIG_TOUCHSCREEN_MTK_SYNAPTICS_3320_50) 
 		input_set_abs_params(tpd->dev, ABS_MT_PRESSURE, 0, 255, 0, 0);
 		input_set_abs_params(tpd->dev, ABS_MT_WIDTH_MAJOR, 0, 15, 0, 0);
 		input_set_abs_params(tpd->dev, ABS_MT_WIDTH_MINOR, 0, 15, 0, 0);
@@ -589,7 +592,7 @@ static int tpd_probe(struct platform_device *pdev)
 	input_set_abs_params(tpd->dev, ABS_Y, 0, TPD_RES_Y, 0, 0);
 	input_abs_set_res(tpd->dev, ABS_X, TPD_RES_X);
 	input_abs_set_res(tpd->dev, ABS_Y, TPD_RES_Y);
-	input_set_abs_params(tpd->dev, ABS_PRESSURE, 0, 255, 0, 0);
+	//input_set_abs_params(tpd->dev, ABS_PRESSURE, 0, 255, 0, 0);
 	input_set_abs_params(tpd->dev, ABS_MT_TRACKING_ID, 0, 10, 0, 0);
 
 	if (input_register_device(tpd->dev))
@@ -624,7 +627,8 @@ static void tpd_init_work_callback(struct work_struct *work)
 int tpd_driver_add(struct tpd_driver_t *tpd_drv)
 {
 	int i;
-
+	
+	printk("[LMH] %s enter, %d\n", __func__, __LINE__);
 	if (g_tpd_drv != NULL) {
 		TPD_DMESG("touch driver exist\n");
 		return -1;
@@ -657,6 +661,7 @@ int tpd_driver_add(struct tpd_driver_t *tpd_drv)
 			return 1;	/* driver exist */
 	}
 
+	printk("[LMH] %s exit, %d\n", __func__, __LINE__);
 	return 0;
 }
 EXPORT_SYMBOL(tpd_driver_add);

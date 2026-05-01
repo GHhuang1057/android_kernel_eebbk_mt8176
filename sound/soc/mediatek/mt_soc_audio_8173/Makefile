@@ -10,7 +10,7 @@ snd-soc-mt8173-pcm-objs := \
     mt_afe_pcm_dl1_awb.o mt_afe_pcm_i2s0_awb.o \
     mt_afe_pcm_btsco.o mt_afe_pcm_mrgrx.o mt_afe_pcm_mrgrx_awb.o \
     mt_afe_pcm_hdmi.o mt_afe_pcm_hdmi_raw.o mt_afe_pcm_spdif.o \
-    mt_afe_pcm_routing.o mt_afe_dai_stub.o mt_afe_pcm_btsco2.o
+    mt_afe_pcm_routing.o mt_afe_dai_stub.o
 
 snd-soc-mt8173-mt6391-mach-objs := \
     mt8173_evb.o

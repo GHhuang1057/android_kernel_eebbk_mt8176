@@ -1,6 +1,5 @@
 /*
 * Copyright (C) 2013 MediaTek Inc.
- * Copyright (C) 2018 XiaoMi, Inc.
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 as
@@ -30,11 +29,11 @@ int als_data_report(struct input_dev *dev, int value, int status)
 	/*ALSPS_LOG(" +als_data_report! %d, %d\n", value, status);*/
 	/* force trigger data update after sensor enable. */
 	if (cxt->is_get_valid_als_data_after_enable == false) {
-		input_report_rel(dev, EVENT_TYPE_ALS_VALUE, value+1);
+		input_report_abs(dev, EVENT_TYPE_ALS_VALUE, value+1);
 		cxt->is_get_valid_als_data_after_enable = true;
 	}
-	input_report_rel(dev, EVENT_TYPE_ALS_VALUE, value);
-	input_report_rel(dev, EVENT_TYPE_ALS_STATUS, status);
+	input_report_abs(dev, EVENT_TYPE_ALS_VALUE, value);
+	input_report_abs(dev, EVENT_TYPE_ALS_STATUS, status);
 	input_sync(dev);
 	return 0;
 }
@@ -42,6 +41,12 @@ int als_data_report(struct input_dev *dev, int value, int status)
 int ps_data_report(struct input_dev *dev, int value, int status)
 {
 	/* ALSPS_LOG("+ps_data_report! %d, %d\n",value,status); */
+	if(dev==NULL)
+	{
+		ALSPS_ERR("lyq:ps_data_report input dev is NULL");
+		return 0;
+	}
+
 	input_report_rel(dev, EVENT_TYPE_PS_VALUE, (value+1));
 	input_report_rel(dev, EVENT_TYPE_PS_STATUS, status);
 	input_sync(dev);
@@ -808,8 +813,8 @@ static int alsps_input_init(struct alsps_context *cxt)
 	set_bit(EV_SYN, dev->evbit);
 	input_set_capability(dev, EV_REL, EVENT_TYPE_PS_VALUE);
 	input_set_capability(dev, EV_REL, EVENT_TYPE_PS_STATUS);
-	input_set_capability(dev, EV_REL, EVENT_TYPE_ALS_VALUE);
-	input_set_capability(dev, EV_REL, EVENT_TYPE_ALS_STATUS);
+	input_set_capability(dev, EV_ABS, EVENT_TYPE_ALS_VALUE);
+	input_set_capability(dev, EV_ABS, EVENT_TYPE_ALS_STATUS);
 	input_set_abs_params(dev, EVENT_TYPE_ALS_VALUE, ALSPS_VALUE_MIN, ALSPS_VALUE_MAX, 0, 0);
 	input_set_abs_params(dev, EVENT_TYPE_ALS_STATUS, ALSPS_STATUS_MIN, ALSPS_STATUS_MAX, 0, 0);
 	input_set_drvdata(dev, cxt);
@@ -1019,8 +1024,6 @@ int alsps_aal_get_data(void)
 	ret = cxt->als_data.get_data(&value, &status);
 	if (ret < 0)
 		return -1;
-
-	value = value/100;/*change lux unit from 100*lux to lux for AAL*/
 
 	return value;
 }

@@ -231,7 +231,6 @@ static ssize_t mt_soc_debug_read(struct file *file, char __user *buf, size_t cou
 	n += scnprintf(buffer + n, size - n, "FPGA_CFG1  = 0x%x\n", mt_afe_get_reg(FPGA_CFG1));
 	n += scnprintf(buffer + n, size - n, "FPGA_STC  = 0x%x\n", mt_afe_get_reg(FPGA_STC));
 
-#endif
 	n += scnprintf(buffer + n, size - n, "AFE_MOD_DAI_BASE = 0x%x\n",
 		       mt_afe_get_reg(AFE_MOD_DAI_BASE));
 	n += scnprintf(buffer + n, size - n, "AFE_MOD_DAI_END = 0x%x\n",
@@ -287,6 +286,7 @@ static ssize_t mt_soc_debug_read(struct file *file, char __user *buf, size_t cou
 		       mt_afe_get_reg(AFE_ASRC_CON20));
 	n += scnprintf(buffer + n, size - n, "AFE_ASRC_CON21  = 0x%x\n",
 		       mt_afe_get_reg(AFE_ASRC_CON21));
+#endif
 
 	mt_afe_main_clk_off();
 
@@ -408,7 +408,6 @@ static ssize_t mt_soc_hdmi_debug_read(struct file *file, char __user *buf,
 		       mt_afe_pll_get_reg(AUDIO_APLL2_PWR_CON0));
 
 	mt_afe_main_clk_off();
-
 	return simple_read_from_buffer(buf, count, pos, buffer, n);
 }
 

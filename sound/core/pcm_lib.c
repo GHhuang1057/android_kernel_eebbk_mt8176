@@ -1,7 +1,6 @@
 /*
  *  Digital Audio (PCM) abstract layer
  *  Copyright (c) by Jaroslav Kysela <perex@perex.cz>
- * Copyright (C) 2018 XiaoMi, Inc.
  *                   Abramo Bagnara <abramo@alsa-project.org>
  *
  *
