@@ -63,8 +63,8 @@ static DEFINE_MUTEX(ta_mutex);
   /* ///////////////////////////////////////////////////////////////////////////////////////// */
   /* // JEITA */
   /* ///////////////////////////////////////////////////////////////////////////////////////// */
-#if defined(CONFIG_MTK_JEITA_STANDARD_SUPPORT)
 int g_temp_status = TEMP_POS_15_TO_POS_45;
+#if defined(CONFIG_MTK_JEITA_STANDARD_SUPPORT)
 bool temp_error_recovery_chr_flag = true;
 bool trickle_charge_stage = false;
 #endif

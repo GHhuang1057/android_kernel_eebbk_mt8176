@@ -1,0 +1,3 @@
+#ifndef _UAPI_LINUX_AUTOCONF_H
+#define _UAPI_LINUX_AUTOCONF_H
+#endif

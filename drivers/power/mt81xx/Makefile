@@ -18,7 +18,7 @@ subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$
 subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/include/mt-plat
 
 
-obj-$(CONFIG_MTK_SMART_BATTERY) += mt_battery_meter.o mt_battery_common.o mt_switch_charging.o mt_bm_data.o
+obj-$(CONFIG_MTK_SMART_BATTERY) += mt_battery_meter.o mt_battery_common.o mt_switch_charging.o mt_bm_data.o mt6397_fgadc.o
 
 ifeq ($(CONFIG_MTK_BQ24297_SUPPORT),y)
     obj-$(CONFIG_MTK_SMART_BATTERY) += bq24297.o

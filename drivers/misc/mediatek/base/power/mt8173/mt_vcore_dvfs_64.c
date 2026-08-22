@@ -34,6 +34,22 @@
 #include <linux/sched/rt.h>
 
 #include <mt_vcore_dvfs.h>
+
+/*
+ * The legacy MTK combo SDIO host (CONFIG_MMC_MTK_COMM_SDIO) is not built on
+ * this platform (it conflicts with the mt8173 MMC host driver). Provide no-op
+ * stubs for the SDIO transfer pause hooks used by the VCORE DVFS path.
+ */
+int sdio_stop_transfer(void)
+{
+	return 0;
+}
+
+int sdio_start_ot_transfer(void)
+{
+	return 0;
+}
+
 #if OLD_VCORE_DVFS_FORMAT
 #include <mach/mt_pmic_wrap.h>
 #include <mach/mt_spm.h>

@@ -2937,6 +2937,14 @@ static int battery_meter_suspend(struct platform_device *dev, pm_message_t state
 }
 
 #if defined(CONFIG_MTK_ENABLE_AGING_ALGORITHM) && !defined(CONFIG_POWER_EXT)
+static void reset_parameter_car(void)
+{
+	s32 car;
+
+	battery_meter_ctrl(BATTERY_METER_CMD_GET_HW_FG_CAR, &car);
+	gFG_columb = car;
+}
+
 static void battery_aging_check(void)
 {
 	s32 hw_ocv_after_sleep;
