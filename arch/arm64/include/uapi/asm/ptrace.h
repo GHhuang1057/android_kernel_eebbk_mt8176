@@ -72,7 +72,9 @@ struct user_pt_regs {
 };
 
 struct user_fpsimd_state {
+#ifdef __aarch64__
 	__uint128_t	vregs[32];
+#endif
 	__u32		fpsr;
 	__u32		fpcr;
 };
